@@ -15,8 +15,10 @@ const STORAGE_KEY = 'mousepsr-state-v2';
 const LEGACY_STORAGE_KEY = 'mousepsr-state-v1';
 const state = loadState();
 let measuring = false;
-let totalX = 0;
-let totalAbsY = 0;
+let runActive = false;
+let runX = 0;
+let runAbsY = 0;
+let sessionRunCount = 0;
 
 const app = document.querySelector('#app');
 
@@ -94,18 +96,18 @@ function unitLabel() {
   return 'mm';
 }
 
-function unitName() {
-  if (state.unit === 'cm') return 'Centimeters';
-  if (state.unit === 'in') return 'Inches';
-  return 'Millimeters';
-}
-
 function displayDigits() {
   return state.unit === 'mm' ? 1 : 2;
 }
 
 function formatDistance(mm, digits = displayDigits()) {
   return `${toDisplayUnit(mm).toFixed(digits)} ${unitLabel()}`;
+}
+
+function measurementStatusText() {
+  if (!measuring) return 'Horizontal movement only';
+  if (runActive) return `RUN ${sessionRunCount + 1} · ${Math.round(Math.abs(runX))} px · release at the second mark`;
+  return `READY FOR RUN ${sessionRunCount + 1} · hold primary button at either mark`;
 }
 
 function render() {
@@ -164,22 +166,34 @@ function render() {
     <section class="panel">
       <div class="section-head">
         <div><span class="step">2</span><h2>Measure sensitivity</h2></div>
-        <span class="status ${state.cssPixelsPerMm ? 'ok' : ''}">${state.cssPixelsPerMm ? 'Ready' : 'Calibrate display first'}</span>
+        <span class="status ${state.cssPixelsPerMm ? 'ok' : ''}">${measuring ? 'Session active' : state.cssPixelsPerMm ? 'Ready' : 'Calibrate display first'}</span>
       </div>
       <div class="controls">
         <label>Physical mouse travel
-          <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" /> ${unitLabel()}
+          <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" ${measuring ? 'disabled' : ''} /> ${unitLabel()}
         </label>
-        <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm ? '' : 'disabled'}>${measuring ? 'Measuring…' : 'Start measurement'}</button>
+        <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm && !measuring ? '' : 'disabled'}>${measuring ? 'Session active' : 'Start measurement'}</button>
       </div>
-      <p>Place the mouse at your start mark, click Start, then move it exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> horizontally. Press <kbd>Space</kbd> to finish. Press <kbd>Esc</kbd> to cancel.</p>
-      <div class="measurement ${measuring ? 'active' : ''}">
+      <p>Draw or mark two horizontal reference positions on your desk or mousepad exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart.</p>
+      ${measuring ? `
+        <div class="session-instructions">
+          <strong>Measurement session active</strong>
+          <ol>
+            <li>Move the mouse to either marked position.</li>
+            <li>Press and hold the primary mouse button to begin a run.</li>
+            <li>Move left or right to the other mark and release the button.</li>
+            <li>Repeat 2–3 times or more for a better reading.</li>
+          </ol>
+          <p>Movement while the button is released is ignored, so you can reposition freely. Press <kbd>Space</kbd> when finished. Press <kbd>Esc</kbd> to cancel the session.</p>
+        </div>
+      ` : `<p>After pressing Start, move to either mark, hold the primary mouse button, move horizontally to the other mark, and release. Repeat 2–3 times or more, then press <kbd>Space</kbd> to finish the session.</p>`}
+      <div class="measurement ${measuring ? 'active' : ''} ${runActive ? 'recording' : ''}">
         <div class="start-line"></div>
         <div class="motion-line"></div>
-        <div class="end-line" style="left:${Math.min(96, 4 + Math.abs(totalX) / 20)}%"></div>
-        <span>${measuring ? `${Math.round(Math.abs(totalX))} px accumulated` : 'Horizontal movement only'}</span>
+        <div class="end-line" style="left:${Math.min(96, 4 + Math.abs(runX) / 20)}%"></div>
+        <span>${measurementStatusText()}</span>
       </div>
-      <p class="hint">Vertical movement is not used in Mouse PSR. It is tracked only as a sweep-quality indicator.</p>
+      <p class="hint">Only movement while the primary button is held is measured. Left-to-right and right-to-left runs are both valid. Vertical movement does not affect Mouse PSR and is tracked only as a sweep-quality indicator.</p>
     </section>
 
     <section class="panel">
@@ -202,7 +216,7 @@ function render() {
           </tr>`).join('')}</tbody>
         </table></div>
         <button id="clearRuns" type="button">Clear runs</button>
-      ` : '<p>No measurements yet. Aim for 3–5 consistent runs.</p>'}
+      ` : '<p>No measurements yet. Aim for at least 2–3 consistent runs.</p>'}
     </section>
 
     <section class="panel">
@@ -220,7 +234,7 @@ function render() {
       <h2>Methodology</h2>
       <p>Browsers cannot reliably know a monitor's true physical PPI. MousePSR therefore calibrates the effective display scale using a known physical length, then measures Pointer Lock relative movement on the horizontal axis.</p>
       <p>Mouse PSR is dimensionless: millimeters, centimeters, and inches all produce the same ratio. Internally, MousePSR stores and calculates physical distances in millimeters and converts only for display.</p>
-      <p>For repeatability, measure the calibration bar from <strong>outside border edge to outside border edge</strong>, disable mouse acceleration, keep browser zoom/display settings unchanged, use an accurately measured physical mouse travel distance, and average several smooth horizontal sweeps.</p>
+      <p>For repeatability, measure the calibration bar from <strong>outside border edge to outside border edge</strong>, disable mouse acceleration, keep browser zoom/display settings unchanged, mark the physical mouse travel distance accurately, and average several smooth horizontal sweeps.</p>
     </section>
   `;
 
@@ -317,8 +331,10 @@ async function startMeasurement() {
     return;
   }
 
-  totalX = 0;
-  totalAbsY = 0;
+  runActive = false;
+  runX = 0;
+  runAbsY = 0;
+  sessionRunCount = 0;
   measuring = true;
   render();
 
@@ -331,38 +347,75 @@ async function startMeasurement() {
   }
 }
 
-function finishMeasurement(cancelled = false) {
-  if (!measuring) return;
-  measuring = false;
-  if (document.pointerLockElement) document.exitPointerLock();
+function beginRun() {
+  if (!measuring || runActive || document.pointerLockElement !== document.body) return;
+  runActive = true;
+  runX = 0;
+  runAbsY = 0;
+  updateMeasurementStatus();
+}
 
-  if (!cancelled && Math.abs(totalX) > 0) {
-    const screenTravelMm = calculateScreenTravelMm(totalX, state.cssPixelsPerMm);
+function completeRun() {
+  if (!measuring || !runActive) return;
+  runActive = false;
+
+  if (Math.abs(runX) > 0) {
+    const screenTravelMm = calculateScreenTravelMm(runX, state.cssPixelsPerMm);
     const ratio = calculateSensitivityRatio(screenTravelMm, state.mouseTravelMm);
     state.runs.push({
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      movementCssPx: Math.abs(totalX),
+      movementCssPx: Math.abs(runX),
       mouseTravelMm: state.mouseTravelMm,
       screenTravelMm,
       ratio,
-      verticalQuality: verticalQuality(totalAbsY, Math.abs(totalX)),
+      verticalQuality: verticalQuality(runAbsY, Math.abs(runX)),
       included: true,
       createdAt: new Date().toISOString(),
     });
+    sessionRunCount += 1;
     saveState();
   }
 
-  totalX = 0;
-  totalAbsY = 0;
+  runX = 0;
+  runAbsY = 0;
   render();
 }
 
-document.addEventListener('mousemove', (event) => {
-  if (!measuring || document.pointerLockElement !== document.body) return;
-  totalX += event.movementX;
-  totalAbsY += Math.abs(event.movementY);
+function finishMeasurement(cancelled = false) {
+  if (!measuring) return;
+  measuring = false;
+  runActive = false;
+  runX = 0;
+  runAbsY = 0;
+  sessionRunCount = 0;
+  if (document.pointerLockElement) document.exitPointerLock();
+  render();
+
+  if (!cancelled && state.runs.length === 0) {
+    alert('No runs were recorded. Start another session and hold the primary mouse button while moving between your marks.');
+  }
+}
+
+function updateMeasurementStatus() {
   const label = document.querySelector('.measurement span');
-  if (label) label.textContent = `${Math.round(Math.abs(totalX))} px accumulated`;
+  if (label) label.textContent = measurementStatusText();
+}
+
+document.addEventListener('mousemove', (event) => {
+  if (!measuring || !runActive || document.pointerLockElement !== document.body) return;
+  runX += event.movementX;
+  runAbsY += Math.abs(event.movementY);
+  updateMeasurementStatus();
+});
+
+document.addEventListener('mousedown', (event) => {
+  if (event.button !== 0) return;
+  beginRun();
+});
+
+document.addEventListener('mouseup', (event) => {
+  if (event.button !== 0) return;
+  completeRun();
 });
 
 document.addEventListener('keydown', (event) => {
