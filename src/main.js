@@ -1,15 +1,18 @@
 import {
-  calculateCssPixelsPerCm,
+  calculateCssPixelsPerMm,
   calculateDifferencePercent,
-  calculateScreenTravelCm,
+  calculateScreenTravelMm,
   calculateSensitivityRatio,
   calculateStatistics,
   verticalQuality,
-  cmToInches,
-  inchesToCm,
+  cmToMm,
+  inchesToMm,
+  mmToCm,
+  mmToInches,
 } from './calc.js';
 
-const STORAGE_KEY = 'mousepsr-state-v1';
+const STORAGE_KEY = 'mousepsr-state-v2';
+const LEGACY_STORAGE_KEY = 'mousepsr-state-v1';
 const state = loadState();
 let measuring = false;
 let totalX = 0;
@@ -19,19 +22,51 @@ const app = document.querySelector('#app');
 
 function defaultState() {
   return {
-    cssPixelsPerCm: null,
-    referenceCm: 10,
+    cssPixelsPerMm: null,
+    referenceMm: 100,
     referencePx: 378,
-    mouseTravelCm: 10,
+    mouseTravelMm: 100,
     targetPsr: 2.74,
-    unit: 'cm',
+    unit: 'mm',
     runs: [],
+  };
+}
+
+function migrateLegacyState(legacy) {
+  if (!legacy || typeof legacy !== 'object') return null;
+
+  return {
+    ...defaultState(),
+    cssPixelsPerMm: legacy.cssPixelsPerCm ? legacy.cssPixelsPerCm / 10 : null,
+    referenceMm: legacy.referenceCm ? cmToMm(legacy.referenceCm) : 100,
+    referencePx: legacy.referencePx || 378,
+    mouseTravelMm: legacy.mouseTravelCm ? cmToMm(legacy.mouseTravelCm) : 100,
+    targetPsr: legacy.targetPsr || 2.74,
+    unit: ['mm', 'cm', 'in'].includes(legacy.unit) ? legacy.unit : 'mm',
+    environment: legacy.environment,
+    runs: Array.isArray(legacy.runs)
+      ? legacy.runs.map((run) => ({
+          ...run,
+          mouseTravelMm: run.mouseTravelMm ?? (run.mouseTravelCm ? cmToMm(run.mouseTravelCm) : 0),
+          screenTravelMm: run.screenTravelMm ?? (run.screenTravelCm ? cmToMm(run.screenTravelCm) : 0),
+        }))
+      : [],
   };
 }
 
 function loadState() {
   try {
-    return { ...defaultState(), ...(JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}) };
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (current) return { ...defaultState(), ...current };
+
+    const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
+    const migrated = migrateLegacyState(legacy);
+    if (migrated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+
+    return defaultState();
   } catch {
     return defaultState();
   }
@@ -41,20 +76,36 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function toDisplayUnit(cm) {
-  return state.unit === 'in' ? cmToInches(cm) : cm;
+function toDisplayUnit(mm) {
+  if (state.unit === 'cm') return mmToCm(mm);
+  if (state.unit === 'in') return mmToInches(mm);
+  return mm;
 }
 
 function fromDisplayUnit(value) {
-  return state.unit === 'in' ? inchesToCm(value) : value;
+  if (state.unit === 'cm') return cmToMm(value);
+  if (state.unit === 'in') return inchesToMm(value);
+  return value;
 }
 
 function unitLabel() {
-  return state.unit === 'in' ? 'in' : 'cm';
+  if (state.unit === 'cm') return 'cm';
+  if (state.unit === 'in') return 'in';
+  return 'mm';
 }
 
-function formatDistance(cm, digits = 2) {
-  return `${toDisplayUnit(cm).toFixed(digits)} ${unitLabel()}`;
+function unitName() {
+  if (state.unit === 'cm') return 'Centimeters';
+  if (state.unit === 'in') return 'Inches';
+  return 'Millimeters';
+}
+
+function displayDigits() {
+  return state.unit === 'mm' ? 1 : 2;
+}
+
+function formatDistance(mm, digits = displayDigits()) {
+  return `${toDisplayUnit(mm).toFixed(digits)} ${unitLabel()}`;
 }
 
 function render() {
@@ -62,8 +113,9 @@ function render() {
   const stats = calculateStatistics(included);
   const current = stats.mean || 0;
   const diff = current && state.targetPsr ? calculateDifferencePercent(current, state.targetPsr) : 0;
-  const referenceDisplay = toDisplayUnit(state.referenceCm);
-  const mouseTravelDisplay = toDisplayUnit(state.mouseTravelCm);
+  const referenceDisplay = toDisplayUnit(state.referenceMm);
+  const mouseTravelDisplay = toDisplayUnit(state.mouseTravelMm);
+  const digits = displayDigits();
 
   app.innerHTML = `
     <header class="hero">
@@ -76,19 +128,20 @@ function render() {
     <section class="panel">
       <div class="section-head">
         <div><span class="step">1</span><h2>Calibrate display</h2></div>
-        <span class="status ${state.cssPixelsPerCm ? 'ok' : ''}">${state.cssPixelsPerCm ? `${state.cssPixelsPerCm.toFixed(2)} px/cm` : 'Required'}</span>
+        <span class="status ${state.cssPixelsPerMm ? 'ok' : ''}">${state.cssPixelsPerMm ? `${state.cssPixelsPerMm.toFixed(3)} px/mm` : 'Required'}</span>
       </div>
 
       <div class="controls compact">
         <label>Units
           <select id="unitSelect">
+            <option value="mm" ${state.unit === 'mm' ? 'selected' : ''}>Millimeters (mm)</option>
             <option value="cm" ${state.unit === 'cm' ? 'selected' : ''}>Centimeters (cm)</option>
             <option value="in" ${state.unit === 'in' ? 'selected' : ''}>Inches (in)</option>
           </select>
         </label>
       </div>
 
-      <p>Place a physical ruler against the screen and adjust the reference until the distance is exactly <strong>${referenceDisplay.toFixed(2)} ${unitLabel()}</strong>.</p>
+      <p>Place a physical ruler against the screen and adjust the reference until the distance is exactly <strong>${referenceDisplay.toFixed(digits)} ${unitLabel()}</strong>.</p>
       <p class="hint"><strong>Measure from the outside edge of the left border to the outside edge of the right border.</strong> Always use the same outside-edge convention. Do not measure between the inner edges of the thick border.</p>
 
       <div class="calibration-stage">
@@ -101,7 +154,7 @@ function render() {
         <span>CSS px</span>
         <button id="plus" type="button">+</button>
         <label>Physical length
-          <input id="referenceLength" type="number" min="0.1" max="100" step="0.01" value="${referenceDisplay.toFixed(2)}" /> ${unitLabel()}
+          <input id="referenceLength" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${referenceDisplay.toFixed(digits)}" /> ${unitLabel()}
         </label>
         <button id="confirmDisplay" class="primary" type="button">Confirm display calibration</button>
       </div>
@@ -111,15 +164,15 @@ function render() {
     <section class="panel">
       <div class="section-head">
         <div><span class="step">2</span><h2>Measure sensitivity</h2></div>
-        <span class="status ${state.cssPixelsPerCm ? 'ok' : ''}">${state.cssPixelsPerCm ? 'Ready' : 'Calibrate display first'}</span>
+        <span class="status ${state.cssPixelsPerMm ? 'ok' : ''}">${state.cssPixelsPerMm ? 'Ready' : 'Calibrate display first'}</span>
       </div>
       <div class="controls">
         <label>Physical mouse travel
-          <input id="mouseTravel" type="number" min="0.1" max="100" step="0.01" value="${mouseTravelDisplay.toFixed(2)}" /> ${unitLabel()}
+          <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" /> ${unitLabel()}
         </label>
-        <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerCm ? '' : 'disabled'}>${measuring ? 'Measuring…' : 'Start measurement'}</button>
+        <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm ? '' : 'disabled'}>${measuring ? 'Measuring…' : 'Start measurement'}</button>
       </div>
-      <p>Place the mouse at your start mark, click Start, then move it exactly <strong>${mouseTravelDisplay.toFixed(2)} ${unitLabel()}</strong> horizontally. Press <kbd>Space</kbd> to finish. Press <kbd>Esc</kbd> to cancel.</p>
+      <p>Place the mouse at your start mark, click Start, then move it exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> horizontally. Press <kbd>Space</kbd> to finish. Press <kbd>Esc</kbd> to cancel.</p>
       <div class="measurement ${measuring ? 'active' : ''}">
         <div class="start-line"></div>
         <div class="motion-line"></div>
@@ -142,8 +195,8 @@ function render() {
           <tbody>${state.runs.map((run, i) => `<tr>
             <td><input class="runToggle" data-id="${run.id}" type="checkbox" ${run.included !== false ? 'checked' : ''}></td>
             <td>${i + 1}</td>
-            <td>${formatDistance(run.mouseTravelCm)}</td>
-            <td>${formatDistance(run.screenTravelCm)}</td>
+            <td>${formatDistance(run.mouseTravelMm ?? cmToMm(run.mouseTravelCm || 0))}</td>
+            <td>${formatDistance(run.screenTravelMm ?? cmToMm(run.screenTravelCm || 0))}</td>
             <td>${run.ratio.toFixed(3)}</td>
             <td>${(run.verticalQuality * 100).toFixed(1)}%</td>
           </tr>`).join('')}</tbody>
@@ -166,7 +219,7 @@ function render() {
     <section class="panel methodology">
       <h2>Methodology</h2>
       <p>Browsers cannot reliably know a monitor's true physical PPI. MousePSR therefore calibrates the effective display scale using a known physical length, then measures Pointer Lock relative movement on the horizontal axis.</p>
-      <p>Mouse PSR is dimensionless: using centimeters or inches produces the same ratio. Internally, MousePSR normalizes distances to centimeters and converts only for display.</p>
+      <p>Mouse PSR is dimensionless: millimeters, centimeters, and inches all produce the same ratio. Internally, MousePSR stores and calculates physical distances in millimeters and converts only for display.</p>
       <p>For repeatability, measure the calibration bar from <strong>outside border edge to outside border edge</strong>, disable mouse acceleration, keep browser zoom/display settings unchanged, use an accurately measured physical mouse travel distance, and average several smooth horizontal sweeps.</p>
     </section>
   `;
@@ -185,7 +238,7 @@ function bindEvents() {
   };
 
   document.querySelector('#unitSelect').addEventListener('change', (e) => {
-    state.unit = e.target.value === 'in' ? 'in' : 'cm';
+    state.unit = ['mm', 'cm', 'in'].includes(e.target.value) ? e.target.value : 'mm';
     saveState();
     render();
   });
@@ -202,22 +255,24 @@ function bindEvents() {
   });
 
   referenceLength.addEventListener('change', (e) => {
-    const value = Math.max(0.1, Number(e.target.value) || toDisplayUnit(10));
-    state.referenceCm = fromDisplayUnit(value);
+    const fallback = toDisplayUnit(100);
+    const value = Math.max(0.01, Number(e.target.value) || fallback);
+    state.referenceMm = fromDisplayUnit(value);
     saveState();
     render();
   });
 
   document.querySelector('#confirmDisplay').addEventListener('click', () => {
-    state.cssPixelsPerCm = calculateCssPixelsPerCm(state.referencePx, state.referenceCm);
+    state.cssPixelsPerMm = calculateCssPixelsPerMm(state.referencePx, state.referenceMm);
     state.environment = captureEnvironment();
     saveState();
     render();
   });
 
   document.querySelector('#mouseTravel').addEventListener('change', (e) => {
-    const value = Math.max(0.1, Number(e.target.value) || toDisplayUnit(10));
-    state.mouseTravelCm = fromDisplayUnit(value);
+    const fallback = toDisplayUnit(100);
+    const value = Math.max(0.01, Number(e.target.value) || fallback);
+    state.mouseTravelMm = fromDisplayUnit(value);
     saveState();
     render();
   });
@@ -256,7 +311,7 @@ function captureEnvironment() {
 }
 
 async function startMeasurement() {
-  if (!state.cssPixelsPerCm || measuring) return;
+  if (!state.cssPixelsPerMm || measuring) return;
   if (!document.body.requestPointerLock) {
     alert('Pointer Lock is not supported by this browser.');
     return;
@@ -282,13 +337,13 @@ function finishMeasurement(cancelled = false) {
   if (document.pointerLockElement) document.exitPointerLock();
 
   if (!cancelled && Math.abs(totalX) > 0) {
-    const screenTravelCm = calculateScreenTravelCm(totalX, state.cssPixelsPerCm);
-    const ratio = calculateSensitivityRatio(screenTravelCm, state.mouseTravelCm);
+    const screenTravelMm = calculateScreenTravelMm(totalX, state.cssPixelsPerMm);
+    const ratio = calculateSensitivityRatio(screenTravelMm, state.mouseTravelMm);
     state.runs.push({
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
       movementCssPx: Math.abs(totalX),
-      mouseTravelCm: state.mouseTravelCm,
-      screenTravelCm,
+      mouseTravelMm: state.mouseTravelMm,
+      screenTravelMm,
       ratio,
       verticalQuality: verticalQuality(totalAbsY, Math.abs(totalX)),
       included: true,
