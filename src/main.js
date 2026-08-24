@@ -105,9 +105,9 @@ function formatDistance(mm, digits = displayDigits()) {
 }
 
 function measurementStatusText() {
-  if (!measuring) return 'Horizontal movement only';
-  if (runActive) return `RUN ${sessionRunCount + 1} · ${Math.round(Math.abs(runX))} px · release at the second mark`;
-  return `READY FOR RUN ${sessionRunCount + 1} · hold primary button at either mark`;
+  if (!measuring) return 'Ready to start a measurement session';
+  if (runActive) return `Run ${sessionRunCount + 1} recording · ${Math.round(Math.abs(runX))} px · release at the second mark`;
+  return `Ready for run ${sessionRunCount + 1} · hold the primary mouse button at either mark`;
 }
 
 function render() {
@@ -145,7 +145,7 @@ function render() {
       </div>
 
       <p>Place a physical ruler against the screen and adjust the reference until the distance is exactly <strong>${referenceDisplay.toFixed(digits)} ${unitLabel()}</strong>.</p>
-      <p class="hint"><strong>Measure from the outside edge of the left border to the outside edge of the right border.</strong> Always use the same outside-edge convention. Do not measure between the inner edges of the thick border.</p>
+      <p class="hint"><strong>Measure from the outside edge of the left border to the outside edge of the right border.</strong> Always use the same outside-edge convention.</p>
 
       <div class="calibration-stage">
         <div id="referenceBar" class="reference-bar" style="width:${state.referencePx}px"></div>
@@ -153,15 +153,20 @@ function render() {
 
       <div class="controls compact">
         <button id="minus" type="button">−</button>
-        <input id="referencePx" type="number" min="50" max="4000" step="1" value="${state.referencePx}" aria-label="Reference width in CSS pixels" />
-        <span>CSS px</span>
+        <div class="input-with-unit">
+          <input id="referencePx" type="number" min="50" max="4000" step="1" value="${state.referencePx}" aria-label="Reference width in CSS pixels" />
+          <span>CSS px</span>
+        </div>
         <button id="plus" type="button">+</button>
         <label>Physical length
-          <input id="referenceLength" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${referenceDisplay.toFixed(digits)}" /> ${unitLabel()}
+          <div class="input-with-unit">
+            <input id="referenceLength" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${referenceDisplay.toFixed(digits)}" />
+            <span>${unitLabel()}</span>
+          </div>
         </label>
         <button id="confirmDisplay" class="primary" type="button">Confirm display calibration</button>
       </div>
-      <p class="hint">Arrow keys fine-adjust by 1 px; Shift + Arrow adjusts by 10 px while the pixel input is focused. The bar's declared width includes its border, so outside-edge to outside-edge is the calibration reference.</p>
+      <p class="hint">Arrow keys fine-adjust by 1 px; Shift + Arrow adjusts by 10 px while the pixel input is focused.</p>
     </section>
 
     <section class="panel">
@@ -171,10 +176,14 @@ function render() {
       </div>
       <div class="controls">
         <label>Physical mouse travel
-          <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" ${measuring ? 'disabled' : ''} /> ${unitLabel()}
+          <div class="input-with-unit">
+            <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" ${measuring ? 'disabled' : ''} />
+            <span>${unitLabel()}</span>
+          </div>
         </label>
         <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm && !measuring ? '' : 'disabled'}>${measuring ? 'Session active' : 'Start measurement'}</button>
       </div>
+
       <p>Draw or mark two horizontal reference positions on your desk or mousepad exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart.</p>
       ${measuring ? `
         <div class="session-instructions">
@@ -185,16 +194,17 @@ function render() {
             <li>Move left or right to the other mark and release the button.</li>
             <li>Repeat 2–3 times or more for a better reading.</li>
           </ol>
-          <p>Movement while the button is released is ignored, so you can reposition freely. Press <kbd>Space</kbd> when finished. Press <kbd>Esc</kbd> to cancel the session.</p>
+          <p>Movement while the button is released is ignored, so you can reposition freely.</p>
+          <p>Press <kbd>Space</kbd> or <kbd>Esc</kbd> when finished. Exiting Pointer Lock with <kbd>Esc</kbd> also ends the session normally and keeps completed runs.</p>
         </div>
-      ` : `<p>After pressing Start, move to either mark, hold the primary mouse button, move horizontally to the other mark, and release. Repeat 2–3 times or more, then press <kbd>Space</kbd> to finish the session.</p>`}
-      <div class="measurement ${measuring ? 'active' : ''} ${runActive ? 'recording' : ''}">
-        <div class="start-line"></div>
-        <div class="motion-line"></div>
-        <div class="end-line" style="left:${Math.min(96, 4 + Math.abs(runX) / 20)}%"></div>
-        <span>${measurementStatusText()}</span>
+      ` : `<p>After pressing Start, move to either mark, hold the primary mouse button, move horizontally to the other mark, and release. Repeat 2–3 times or more. Press <kbd>Space</kbd> or <kbd>Esc</kbd> to finish the session.</p>`}
+
+      <div class="measurement-status ${measuring ? 'active' : ''} ${runActive ? 'recording' : ''}" aria-live="polite">
+        <span class="measurement-state">${measurementStatusText()}</span>
+        ${measuring ? `<span class="measurement-count">Completed this session: ${sessionRunCount}</span>` : ''}
       </div>
-      <p class="hint">Only movement while the primary button is held is measured. Left-to-right and right-to-left runs are both valid. Vertical movement does not affect Mouse PSR and is tracked only as a sweep-quality indicator.</p>
+
+      <p class="hint">Only horizontal movement while the primary button is held is used for Mouse PSR. Left-to-right and right-to-left runs are both valid. Vertical movement is tracked only as a sweep-quality indicator.</p>
     </section>
 
     <section class="panel">
@@ -223,7 +233,9 @@ function render() {
     <section class="panel">
       <div class="section-head"><div><span class="step">4</span><h2>Match a target</h2></div></div>
       <div class="controls">
-        <label>Target Mouse PSR <input id="targetPsr" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" /></label>
+        <label>Target Mouse PSR
+          <input id="targetPsr" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
+        </label>
       </div>
       ${current ? `<div class="match-result">
         <strong>${Math.abs(diff) <= 1 ? 'Matched within 1%' : diff < 0 ? 'Increase OS pointer sensitivity' : 'Decrease OS pointer sensitivity'}</strong>
@@ -382,23 +394,24 @@ function completeRun() {
   render();
 }
 
-function finishMeasurement(cancelled = false) {
+function finishMeasurement() {
   if (!measuring) return;
   measuring = false;
   runActive = false;
   runX = 0;
   runAbsY = 0;
+  const completedRuns = sessionRunCount;
   sessionRunCount = 0;
   if (document.pointerLockElement) document.exitPointerLock();
   render();
 
-  if (!cancelled && state.runs.length === 0) {
+  if (completedRuns === 0) {
     alert('No runs were recorded. Start another session and hold the primary mouse button while moving between your marks.');
   }
 }
 
 function updateMeasurementStatus() {
-  const label = document.querySelector('.measurement span');
+  const label = document.querySelector('.measurement-state');
   if (label) label.textContent = measurementStatusText();
 }
 
@@ -422,15 +435,19 @@ document.addEventListener('mouseup', (event) => {
 document.addEventListener('keydown', (event) => {
   const tag = event.target?.tagName?.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
   if (event.code === 'Space' && measuring) {
     event.preventDefault();
-    finishMeasurement(false);
+    finishMeasurement();
   }
-  if (event.key === 'Escape' && measuring) finishMeasurement(true);
+
+  if (event.key === 'Escape' && measuring) {
+    finishMeasurement();
+  }
 });
 
 document.addEventListener('pointerlockchange', () => {
-  if (measuring && document.pointerLockElement !== document.body) finishMeasurement(true);
+  if (measuring && document.pointerLockElement !== document.body) finishMeasurement();
 });
 
 render();
