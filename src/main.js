@@ -237,6 +237,7 @@ function render() {
           <input id="targetPsr" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
         </label>
       </div>
+      <p class="hint"><strong>Illustrative starting points, not standards:</strong> a lower Mouse PSR means slower cursor travel and finer control. Around <strong>3–5</strong> can be explored for precision-focused work, while around <strong>10–12</strong> can be explored for faster general/office navigation. Your preferred value depends on display size, workspace, mouse grip, and personal preference. The best target is usually a Mouse PSR you already find comfortable on one system.</p>
       ${current ? `<div class="match-result">
         <strong>${Math.abs(diff) <= 1 ? 'Matched within 1%' : diff < 0 ? 'Increase OS pointer sensitivity' : 'Decrease OS pointer sensitivity'}</strong>
         <span>Current ${current.toFixed(3)} · Target ${state.targetPsr.toFixed(3)} · Difference ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%</span>
@@ -245,9 +246,12 @@ function render() {
 
     <section class="panel methodology">
       <h2>Methodology</h2>
+      <p><strong>What MousePSR matches:</strong> MousePSR measures the physical desktop result — how far the cursor travels across the physical display for a given physical mouse movement. If two systems measure the same Mouse PSR, then the same physical mouse travel should produce approximately the same physical horizontal cursor travel on both systems.</p>
+      <p><strong>What it does not guarantee:</strong> matching Mouse PSR does not make every part of the input pipeline identical. Operating systems, browsers, mouse polling, filtering, pointer-speed step sizes, display scaling, and hardware can still introduce subtle differences. MousePSR should therefore be treated as a practical way to normalize <em>physical cursor sensitivity</em>, not a guarantee of mathematically identical input behavior.</p>
       <p>Browsers cannot reliably know a monitor's true physical PPI. MousePSR therefore calibrates the effective display scale using a known physical length, then measures Pointer Lock relative movement on the horizontal axis.</p>
-      <p>Mouse PSR is dimensionless: millimeters, centimeters, and inches all produce the same ratio. Internally, MousePSR stores and calculates physical distances in millimeters and converts only for display.</p>
-      <p>For repeatability, measure the calibration bar from <strong>outside border edge to outside border edge</strong>, disable mouse acceleration, keep browser zoom/display settings unchanged, mark the physical mouse travel distance accurately, and average several smooth horizontal sweeps.</p>
+      <p>Mouse PSR is dimensionless: millimeters, centimeters, and inches all produce the same ratio. A Mouse PSR of 5 means that 1 cm of physical mouse travel produces approximately 5 cm of physical horizontal cursor travel on the calibrated display.</p>
+      <p><strong>For reliable matching:</strong> disable mouse acceleration (including Windows <strong>Enhance pointer precision</strong>), keep browser zoom and display scaling unchanged after calibration, recalibrate when moving to another monitor, mark the mouse travel distance accurately, use smooth horizontal sweeps, and average several consistent runs.</p>
+      <p>The most reliable cross-system workflow is to measure a comfortable Mouse PSR on your reference computer, save that value, then adjust pointer speed on each other computer until its measured Mouse PSR is as close as practical to the same target.</p>
     </section>
   `;
 
