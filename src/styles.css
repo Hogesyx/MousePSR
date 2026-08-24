@@ -8,7 +8,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 
@@ -35,21 +35,27 @@ h2 { margin: 0; font-size: 1.25rem; }
 .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
 .controls.compact { align-items: center; }
 label { display: grid; gap: 6px; font-size: .84rem; font-weight: 700; color: #4b5563; }
-input[type="number"] { width: 130px; min-height: 42px; border: 1px solid #cfd7e3; border-radius: 10px; padding: 8px 10px; background: #fff; color: #111827; }
+input[type="number"], select { min-height: 42px; border: 1px solid #cfd7e3; border-radius: 10px; padding: 8px 10px; background: #fff; color: #111827; }
+input[type="number"] { width: 130px; }
+.input-with-unit { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.input-with-unit > span { color: #6b7280; font-size: .9rem; font-weight: 700; }
 button { min-height: 42px; border: 1px solid #cfd7e3; border-radius: 10px; padding: 8px 14px; background: #fff; color: #111827; font-weight: 700; }
 button.primary { background: #111827; color: #fff; border-color: #111827; }
-button:focus-visible, input:focus-visible { outline: 3px solid rgba(79,70,229,.25); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(79,70,229,.25); outline-offset: 2px; }
 
 .calibration-stage { min-height: 150px; display: flex; align-items: center; overflow-x: auto; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 24px; background: #fafbfc; }
 .reference-bar { height: 22px; min-width: 50px; max-width: 100%; border-left: 3px solid #111827; border-right: 3px solid #111827; background: repeating-linear-gradient(90deg,#111827 0,#111827 1px,transparent 1px,transparent 10px); }
 
-.measurement { position: relative; height: 110px; border-radius: 16px; border: 1px solid #dbe1ea; background: #fafbfc; overflow: hidden; display: flex; align-items: flex-end; padding: 12px; margin-top: 16px; }
-.measurement.active { background: #f8fafc; }
-.start-line, .end-line { position: absolute; top: 18px; bottom: 32px; width: 2px; background: #111827; }
-.start-line { left: 4%; }
-.end-line { left: 4%; }
-.motion-line { position: absolute; left: 4%; right: 4%; top: 50%; height: 1px; background: #d1d5db; }
-.measurement span { position: relative; z-index: 2; color: #4b5563; font-size: .85rem; }
+.session-instructions { margin-top: 16px; padding: 16px; border: 1px solid #dbe1ea; border-radius: 14px; background: #f8fafc; }
+.session-instructions ol { margin: 10px 0 12px 1.2rem; padding: 0; }
+.session-instructions li + li { margin-top: 5px; }
+.session-instructions p:last-child { margin-bottom: 0; }
+
+.measurement-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid #dbe1ea; border-radius: 14px; background: #fafbfc; }
+.measurement-status.active { background: #f8fafc; }
+.measurement-status.recording { border-width: 2px; }
+.measurement-state { font-weight: 700; }
+.measurement-count { color: #6b7280; font-size: .9rem; }
 
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
 .metrics > div { padding: 16px; border-radius: 14px; background: #f8fafc; border: 1px solid #e5e7eb; }
@@ -70,18 +76,22 @@ kbd { border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 6px; p
   .section-head { align-items: flex-start; }
   .metrics { grid-template-columns: 1fr; }
   .formula { border-radius: 12px; }
+  .controls { align-items: stretch; }
+  .input-with-unit { width: 100%; }
+  .input-with-unit input { min-width: 0; flex: 1; }
 }
 
 @media (prefers-color-scheme: dark) {
   :root { color: #f3f4f6; background: #0b0f16; }
   .panel { background: #111827; border-color: #273244; box-shadow: none; }
-  .lede, .hint, .methodology p, .measurement span { color: #9ca3af; }
-  .formula, button, input[type="number"] { background: #0f172a; color: #f3f4f6; border-color: #334155; }
+  .lede, .hint, .methodology p, .measurement-count { color: #9ca3af; }
+  .formula, button, input[type="number"], select, kbd { background: #0f172a; color: #f3f4f6; border-color: #334155; }
   button.primary { background: #f3f4f6; color: #111827; border-color: #f3f4f6; }
   .step { background: #f3f4f6; color: #111827; }
   .status { background: #1f2937; color: #9ca3af; }
   .status.ok { background: #052e22; color: #6ee7b7; }
-  .calibration-stage, .measurement, .metrics > div, .match-result { background: #0f172a; border-color: #334155; }
-  .reference-bar, .start-line, .end-line { border-color: #f3f4f6; background-color: #f3f4f6; }
-  .motion-line, th, td { border-color: #334155; }
+  .calibration-stage, .session-instructions, .measurement-status, .metrics > div, .match-result { background: #0f172a; border-color: #334155; }
+  .reference-bar { border-color: #f3f4f6; background-color: #f3f4f6; }
+  th, td { border-color: #334155; }
+  .input-with-unit > span { color: #9ca3af; }
 }
