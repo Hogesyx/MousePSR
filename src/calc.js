@@ -1,24 +1,32 @@
-export function cmToInches(cm) {
-  return cm / 2.54;
+export function mmToCm(mm) {
+  return mm / 10;
 }
 
-export function inchesToCm(inches) {
-  return inches * 2.54;
+export function cmToMm(cm) {
+  return cm * 10;
 }
 
-export function calculateCssPixelsPerCm(widthPx, physicalCm) {
-  if (!(widthPx > 0) || !(physicalCm > 0)) throw new Error('Values must be positive.');
-  return widthPx / physicalCm;
+export function mmToInches(mm) {
+  return mm / 25.4;
 }
 
-export function calculateScreenTravelCm(movementPx, cssPixelsPerCm) {
-  if (!(cssPixelsPerCm > 0)) throw new Error('Display calibration is required.');
-  return Math.abs(movementPx) / cssPixelsPerCm;
+export function inchesToMm(inches) {
+  return inches * 25.4;
 }
 
-export function calculateSensitivityRatio(screenTravelCm, mouseTravelCm) {
-  if (!(mouseTravelCm > 0)) throw new Error('Mouse travel must be positive.');
-  return screenTravelCm / mouseTravelCm;
+export function calculateCssPixelsPerMm(widthPx, physicalMm) {
+  if (!(widthPx > 0) || !(physicalMm > 0)) throw new Error('Values must be positive.');
+  return widthPx / physicalMm;
+}
+
+export function calculateScreenTravelMm(movementPx, cssPixelsPerMm) {
+  if (!(cssPixelsPerMm > 0)) throw new Error('Display calibration is required.');
+  return Math.abs(movementPx) / cssPixelsPerMm;
+}
+
+export function calculateSensitivityRatio(screenTravelMm, mouseTravelMm) {
+  if (!(mouseTravelMm > 0)) throw new Error('Mouse travel must be positive.');
+  return screenTravelMm / mouseTravelMm;
 }
 
 export function calculateDifferencePercent(current, target) {
