@@ -6,22 +6,34 @@ MousePSR defines **Mouse Physical Sensitivity Ratio (Mouse PSR)** as:
 
 > physical horizontal cursor travel on the display ÷ physical horizontal mouse travel on the desk
 
-For example, if moving a mouse 10 cm causes 27.4 cm of physical cursor travel on screen, the Mouse PSR is **2.740**.
+For example, if moving a mouse 100 mm causes 274 mm of physical cursor travel on screen, the Mouse PSR is **2.740**.
 
 ## Why
 
 Operating systems expose pointer sensitivity using different scales, and monitor size/scaling changes the physical distance represented by the same number of screen pixels. MousePSR measures the resulting physical experience instead of relying on OS sensitivity numbers.
 
+## Units
+
+MousePSR stores and calculates physical distances internally in **millimeters (mm)**. Users can display and enter measurements in:
+
+- millimeters (mm)
+- centimeters (cm)
+- inches (in)
+
+The Mouse PSR itself is dimensionless, so the selected display unit does not change the resulting ratio.
+
 ## How it works
 
 1. Calibrate the display using a known physical length.
-2. Choose a physical mouse travel distance (10 cm by default).
+2. Choose a physical mouse travel distance (100 mm / 10 cm by default).
 3. Start a measurement and move the mouse horizontally by that exact distance.
 4. MousePSR uses Pointer Lock relative movement to measure horizontal cursor travel.
 5. Repeat several runs and use the averaged Mouse PSR.
 6. On another OS/display, adjust pointer sensitivity until its Mouse PSR matches the target.
 
 Mouse movement is intentionally measured on the **horizontal axis only**. Vertical movement is ignored for sensitivity calculation and tracked only as a quality indicator for how straight the sweep was.
+
+For display calibration, measure the reference bar from the **outside edge of the left border to the outside edge of the right border**. Do not measure between the inner edges of the thick border.
 
 ## Local development
 
