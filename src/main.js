@@ -123,7 +123,8 @@ function render() {
     <header class="hero">
       <p class="eyebrow">Physical cursor calibration</p>
       <h1>MousePSR</h1>
-      <p class="lede">Measure and match physical mouse sensitivity across operating systems and displays.</p>
+      <p class="lede">Measure and match consistent physical mouse sensitivity across operating systems and displays.</p>
+      <p class="hint"><strong>Designed for linear mouse behavior:</strong> disable mouse acceleration before measuring or matching. On Windows, turn off <strong>Enhance pointer precision</strong>.</p>
       <div class="formula">Mouse PSR = physical horizontal screen travel ÷ physical horizontal mouse travel</div>
     </header>
 
