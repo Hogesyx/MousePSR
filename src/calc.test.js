@@ -1,31 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calculateCssPixelsPerCm,
+  calculateCssPixelsPerMm,
   calculateDifferencePercent,
-  calculateScreenTravelCm,
+  calculateScreenTravelMm,
   calculateSensitivityRatio,
   calculateStatistics,
-  cmToInches,
-  inchesToCm,
+  cmToMm,
+  inchesToMm,
+  mmToCm,
+  mmToInches,
   verticalQuality,
 } from './calc.js';
 
 describe('MousePSR calculations', () => {
-  it('calculates CSS pixels per centimeter', () => {
-    expect(calculateCssPixelsPerCm(378, 10)).toBeCloseTo(37.8, 10);
+  it('calculates CSS pixels per millimeter', () => {
+    expect(calculateCssPixelsPerMm(378, 100)).toBeCloseTo(3.78, 10);
   });
 
-  it('converts cursor movement to physical screen travel', () => {
-    expect(calculateScreenTravelCm(1134, 37.8)).toBeCloseTo(30, 10);
+  it('converts cursor movement to physical screen travel in millimeters', () => {
+    expect(calculateScreenTravelMm(1134, 3.78)).toBeCloseTo(300, 10);
   });
 
-  it('calculates Mouse PSR', () => {
-    expect(calculateSensitivityRatio(30, 10)).toBeCloseTo(3, 10);
+  it('calculates Mouse PSR using millimeters', () => {
+    expect(calculateSensitivityRatio(300, 100)).toBeCloseTo(3, 10);
   });
 
-  it('converts centimeters and inches', () => {
-    expect(cmToInches(2.54)).toBeCloseTo(1, 10);
-    expect(inchesToCm(1)).toBeCloseTo(2.54, 10);
+  it('converts millimeters, centimeters, and inches', () => {
+    expect(mmToCm(10)).toBeCloseTo(1, 10);
+    expect(cmToMm(1)).toBeCloseTo(10, 10);
+    expect(mmToInches(25.4)).toBeCloseTo(1, 10);
+    expect(inchesToMm(1)).toBeCloseTo(25.4, 10);
   });
 
   it('calculates target difference', () => {
