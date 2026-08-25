@@ -36,7 +36,6 @@ function defaultState() {
 
 function migrateLegacyState(legacy) {
   if (!legacy || typeof legacy !== 'object') return null;
-
   return {
     ...defaultState(),
     cssPixelsPerMm: legacy.cssPixelsPerCm ? legacy.cssPixelsPerCm / 10 : null,
@@ -60,14 +59,12 @@ function loadState() {
   try {
     const current = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (current) return { ...defaultState(), ...current };
-
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     const migrated = migrateLegacyState(legacy);
     if (migrated) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
     }
-
     return defaultState();
   } catch {
     return defaultState();
@@ -135,38 +132,38 @@ function render() {
       </div>
 
       <div class="controls compact">
-        <label>Units
+        <label>Unit type
           <select id="unitSelect">
             <option value="mm" ${state.unit === 'mm' ? 'selected' : ''}>Millimeters (mm)</option>
             <option value="cm" ${state.unit === 'cm' ? 'selected' : ''}>Centimeters (cm)</option>
             <option value="in" ${state.unit === 'in' ? 'selected' : ''}>Inches (in)</option>
           </select>
         </label>
+        <label>Reference target length
+          <div class="input-with-unit">
+            <input id="referenceLength" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${referenceDisplay.toFixed(digits)}" />
+            <span>${unitLabel()}</span>
+          </div>
+        </label>
       </div>
 
-      <p>Place a physical ruler against the screen and adjust the reference until the distance is exactly <strong>${referenceDisplay.toFixed(digits)} ${unitLabel()}</strong>.</p>
-      <p class="hint"><strong>Measure from the outside edge of the left border to the outside edge of the right border.</strong> Always use the same outside-edge convention.</p>
+      <p>Select a unit and a <strong>reference target length</strong> that is long enough to reduce measurement error but still practical to measure on your display. Then place a physical ruler against the screen and adjust the on-screen reference gap until it matches that target length.</p>
+      <p class="hint"><strong>Measure from the outside edge of the left border to the outside edge of the right border.</strong> A longer reference, such as 100 mm / 10 cm when practical, is generally easier to calibrate accurately.</p>
 
       <div class="calibration-stage">
         <div id="referenceBar" class="reference-bar" style="width:${state.referencePx}px"></div>
       </div>
 
       <div class="controls compact">
-        <button id="minus" type="button">−</button>
+        <button id="minus" type="button" aria-label="Decrease reference width">−</button>
         <div class="input-with-unit">
           <input id="referencePx" type="number" min="50" max="4000" step="1" value="${state.referencePx}" aria-label="Reference width in CSS pixels" />
           <span>CSS px</span>
         </div>
-        <button id="plus" type="button">+</button>
-        <label>Physical length
-          <div class="input-with-unit">
-            <input id="referenceLength" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${referenceDisplay.toFixed(digits)}" />
-            <span>${unitLabel()}</span>
-          </div>
-        </label>
+        <button id="plus" type="button" aria-label="Increase reference width">+</button>
         <button id="confirmDisplay" class="primary" type="button">Confirm display calibration</button>
       </div>
-      <p class="hint">Arrow keys fine-adjust by 1 px; Shift + Arrow adjusts by 10 px while the pixel input is focused.</p>
+      <p class="hint">Use − / + or edit the CSS-pixel width until the displayed gap matches your target. Alternatively, if you measure the displayed gap first, you can change the Reference target length to that measured value before confirming. Arrow keys fine-adjust by 1 px; Shift + Arrow adjusts by 10 px while the CSS-pixel input is focused.</p>
     </section>
 
     <section class="panel">
@@ -174,8 +171,9 @@ function render() {
         <div><span class="step">2</span><h2>Measure sensitivity</h2></div>
         <span class="status ${state.cssPixelsPerMm ? 'ok' : ''}">${measuring ? 'Session active' : state.cssPixelsPerMm ? 'Ready' : 'Calibrate display first'}</span>
       </div>
+
       <div class="controls">
-        <label>Physical mouse travel
+        <label>Physical mouse travel distance
           <div class="input-with-unit">
             <input id="mouseTravel" type="number" min="0.01" max="2500" step="${state.unit === 'mm' ? '0.1' : '0.01'}" value="${mouseTravelDisplay.toFixed(digits)}" ${measuring ? 'disabled' : ''} />
             <span>${unitLabel()}</span>
@@ -184,7 +182,7 @@ function render() {
         <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm && !measuring ? '' : 'disabled'}>${measuring ? 'Session active' : 'Start measurement'}</button>
       </div>
 
-      <p>Draw or mark two horizontal reference positions on your desk or mousepad exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart.</p>
+      <p>Mark two horizontal positions on your desk or mousepad exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart. After starting, hold the primary mouse button at one mark, move horizontally to the other mark, and release. Repeat 2–3 times or more for a better reading.</p>
       ${measuring ? `
         <div class="session-instructions">
           <strong>Measurement session active</strong>
@@ -192,27 +190,24 @@ function render() {
             <li>Move the mouse to either marked position.</li>
             <li>Press and hold the primary mouse button to begin a run.</li>
             <li>Move left or right to the other mark and release the button.</li>
-            <li>Repeat 2–3 times or more for a better reading.</li>
+            <li>Repeat 2–3 times or more.</li>
           </ol>
           <p>Movement while the button is released is ignored, so you can reposition freely.</p>
-          <p>Press <kbd>Space</kbd> or <kbd>Esc</kbd> when finished. Exiting Pointer Lock with <kbd>Esc</kbd> also ends the session normally and keeps completed runs.</p>
+          <p>Press <kbd>Space</kbd> or <kbd>Esc</kbd> when finished. Exiting Pointer Lock with <kbd>Esc</kbd> ends the session normally and keeps completed runs.</p>
         </div>
-      ` : `<p>After pressing Start, move to either mark, hold the primary mouse button, move horizontally to the other mark, and release. Repeat 2–3 times or more. Press <kbd>Space</kbd> or <kbd>Esc</kbd> to finish the session.</p>`}
+      ` : ''}
 
       <div class="measurement-status ${measuring ? 'active' : ''} ${runActive ? 'recording' : ''}" aria-live="polite">
         <span class="measurement-state">${measurementStatusText()}</span>
         ${measuring ? `<span class="measurement-count">Completed this session: ${sessionRunCount}</span>` : ''}
       </div>
-
       <p class="hint">Only horizontal movement while the primary button is held is used for Mouse PSR. Left-to-right and right-to-left runs are both valid. Vertical movement is tracked only as a sweep-quality indicator.</p>
-    </section>
 
-    <section class="panel">
-      <div class="section-head"><div><span class="step">3</span><h2>Results</h2></div></div>
+      <div class="section-head" style="margin-top:24px"><div><h2>Measurement results</h2></div></div>
       ${state.runs.length ? `
         <div class="metrics">
           <div><span>Average Mouse PSR</span><strong>${stats.mean.toFixed(3)}</strong></div>
-          <div><span>Median</span><strong>${stats.median.toFixed(3)}</strong></div>
+          <div><span>Median Mouse PSR</span><strong>${stats.median.toFixed(3)}</strong></div>
           <div><span>Std. deviation</span><strong>${stats.sd.toFixed(3)}</strong></div>
         </div>
         <div class="table-wrap"><table>
@@ -231,17 +226,22 @@ function render() {
     </section>
 
     <section class="panel">
-      <div class="section-head"><div><span class="step">4</span><h2>Match a target</h2></div></div>
-      <div class="controls">
-        <label>Target Mouse PSR
+      <div class="section-head"><div><span class="step">3</span><h2>Match a target</h2></div></div>
+      <p>This section is mainly a reference aid. Experienced users who already know their preferred Mouse PSR can use Section 2 directly and adjust the operating system until their measured result reaches that target.</p>
+      <div class="metrics">
+        <div><span>Current average</span><strong>${current ? current.toFixed(3) : '—'}</strong></div>
+        <div><span>Current median</span><strong>${included.length ? stats.median.toFixed(3) : '—'}</strong></div>
+        <div>
+          <span>Desired target</span>
+          <label class="sr-only" for="targetPsr">Desired target Mouse PSR</label>
           <input id="targetPsr" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
-        </label>
+        </div>
       </div>
-      <p class="hint"><strong>Illustrative starting points, not standards:</strong> a lower Mouse PSR means slower cursor travel and finer control. Around <strong>3–5</strong> can be explored for precision-focused work, while around <strong>10–12</strong> can be explored for faster general/office navigation. Your preferred value depends on display size, workspace, mouse grip, and personal preference. The best target is usually a Mouse PSR you already find comfortable on one system.</p>
+      <p class="hint"><strong>Illustrative starting points, not standards:</strong> lower Mouse PSR means slower cursor travel and finer control. Around <strong>3–5</strong> can be explored for precision-focused work, while around <strong>10–12</strong> can be explored for faster general/office navigation. The best target is usually a value you already find comfortable on a reference system.</p>
       ${current ? `<div class="match-result">
         <strong>${Math.abs(diff) <= 1 ? 'Matched within 1%' : diff < 0 ? 'Increase OS pointer sensitivity' : 'Decrease OS pointer sensitivity'}</strong>
         <span>Current ${current.toFixed(3)} · Target ${state.targetPsr.toFixed(3)} · Difference ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%</span>
-      </div>` : '<p>Complete measurements to compare against a target.</p>'}
+      </div>` : '<p>Complete measurements in Section 2 to compare your current sensitivity against the desired target.</p>'}
     </section>
 
     <section class="panel methodology">
@@ -439,15 +439,11 @@ document.addEventListener('mouseup', (event) => {
 document.addEventListener('keydown', (event) => {
   const tag = event.target?.tagName?.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-
   if (event.code === 'Space' && measuring) {
     event.preventDefault();
     finishMeasurement();
   }
-
-  if (event.key === 'Escape' && measuring) {
-    finishMeasurement();
-  }
+  if (event.key === 'Escape' && measuring) finishMeasurement();
 });
 
 document.addEventListener('pointerlockchange', () => {
