@@ -233,8 +233,7 @@ function render() {
         <div><span>Current median</span><strong>${included.length ? stats.median.toFixed(3) : '—'}</strong></div>
         <div>
           <span>Desired target</span>
-          <label class="sr-only" for="targetPsr">Desired target Mouse PSR</label>
-          <input id="targetPsr" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
+          <input id="targetPsr" aria-label="Desired target Mouse PSR" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
         </div>
       </div>
       <p class="hint"><strong>Illustrative starting points, not standards:</strong> lower Mouse PSR means slower cursor travel and finer control. Around <strong>3–5</strong> can be explored for precision-focused work, while around <strong>10–12</strong> can be explored for faster general/office navigation. The best target is usually a value you already find comfortable on a reference system.</p>
