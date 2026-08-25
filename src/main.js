@@ -182,7 +182,8 @@ function render() {
         <button id="startMeasurement" class="primary" type="button" ${state.cssPixelsPerMm && !measuring ? '' : 'disabled'}>${measuring ? 'Session active' : 'Start measurement'}</button>
       </div>
 
-      <p>Mark two horizontal positions on your desk or mousepad exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart. After starting, hold the primary mouse button at one mark, move horizontally to the other mark, and release. Repeat 2–3 times or more for a better reading.</p>
+      <p>Choose a <strong>physical mouse travel distance</strong> that is long enough to give a stable measurement, but still comfortable and practical to repeat on your desk or mousepad. A longer distance generally reduces small positioning errors, while an excessively long distance can make the sweep harder to perform consistently.</p>
+      <p>Once you have chosen the distance, mark two horizontal positions exactly <strong>${mouseTravelDisplay.toFixed(digits)} ${unitLabel()}</strong> apart. After starting, hold the primary mouse button at one mark, move horizontally to the other mark, and release. Repeat 2–3 times or more for a better reading.</p>
       ${measuring ? `
         <div class="session-instructions">
           <strong>Measurement session active</strong>
