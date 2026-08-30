@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateCssPixelsPerMm,
   calculateDifferencePercent,
+  calculateMouseMsc,
   calculateScreenTravelMm,
   calculateSensitivityRatio,
   calculateStatistics,
@@ -23,6 +24,14 @@ describe('MousePSR calculations', () => {
 
   it('calculates Mouse PSR using millimeters', () => {
     expect(calculateSensitivityRatio(300, 100)).toBeCloseTo(3, 10);
+  });
+
+  it('calculates Mouse MSC as percent of screen width per inch of mouse travel', () => {
+    expect(calculateMouseMsc(384, 1920, 100)).toBeCloseTo(5.08, 10);
+  });
+
+  it('normalizes Mouse MSC across different physical test distances', () => {
+    expect(calculateMouseMsc(192, 1920, 50)).toBeCloseTo(5.08, 10);
   });
 
   it('converts millimeters, centimeters, and inches', () => {
