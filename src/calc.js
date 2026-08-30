@@ -29,6 +29,12 @@ export function calculateSensitivityRatio(screenTravelMm, mouseTravelMm) {
   return screenTravelMm / mouseTravelMm;
 }
 
+export function calculateMouseMsc(movementPx, screenWidthPx, mouseTravelMm) {
+  if (!(screenWidthPx > 0)) throw new Error('Screen width must be positive.');
+  if (!(mouseTravelMm > 0)) throw new Error('Mouse travel must be positive.');
+  return (Math.abs(movementPx) / screenWidthPx) * 100 * (25.4 / mouseTravelMm);
+}
+
 export function calculateDifferencePercent(current, target) {
   if (!(target > 0)) throw new Error('Target must be positive.');
   return ((current - target) / target) * 100;
