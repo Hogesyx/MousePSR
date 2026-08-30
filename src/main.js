@@ -1,6 +1,7 @@
 import {
   calculateCssPixelsPerMm,
   calculateDifferencePercent,
+  calculateMouseMsc,
   calculateScreenTravelMm,
   calculateSensitivityRatio,
   calculateStatistics,
@@ -29,6 +30,8 @@ function defaultState() {
     referencePx: 378,
     mouseTravelMm: 100,
     targetPsr: 2.74,
+    targetMsc: 5,
+    targetMetric: 'psr',
     unit: 'mm',
     runs: [],
   };
@@ -101,6 +104,12 @@ function formatDistance(mm, digits = displayDigits()) {
   return `${toDisplayUnit(mm).toFixed(digits)} ${unitLabel()}`;
 }
 
+function runMsc(run) {
+  if (Number.isFinite(run.msc)) return run.msc;
+  const screenWidthPx = run.screenWidthPx || state.environment?.screenWidth || screen.width;
+  return calculateMouseMsc(run.movementCssPx, screenWidthPx, run.mouseTravelMm);
+}
+
 function measurementStatusText() {
   if (!measuring) return 'Ready to start a measurement session';
   if (runActive) return `Run ${sessionRunCount + 1} recording · ${Math.round(Math.abs(runX))} px · release at the second mark`;
@@ -108,10 +117,16 @@ function measurementStatusText() {
 }
 
 function render() {
-  const included = state.runs.filter((run) => run.included !== false).map((run) => run.ratio);
-  const stats = calculateStatistics(included);
-  const current = stats.mean || 0;
-  const diff = current && state.targetPsr ? calculateDifferencePercent(current, state.targetPsr) : 0;
+  const includedRuns = state.runs.filter((run) => run.included !== false);
+  const psrValues = includedRuns.map((run) => run.ratio);
+  const mscValues = includedRuns.map(runMsc);
+  const psrStats = calculateStatistics(psrValues);
+  const mscStats = calculateStatistics(mscValues);
+  const currentPsr = psrStats.mean || 0;
+  const currentMsc = mscStats.mean || 0;
+  const targetValue = state.targetMetric === 'msc' ? state.targetMsc : state.targetPsr;
+  const currentValue = state.targetMetric === 'msc' ? currentMsc : currentPsr;
+  const diff = currentValue && targetValue ? calculateDifferencePercent(currentValue, targetValue) : 0;
   const referenceDisplay = toDisplayUnit(state.referenceMm);
   const mouseTravelDisplay = toDisplayUnit(state.mouseTravelMm);
   const digits = displayDigits();
@@ -120,9 +135,9 @@ function render() {
     <header class="hero">
       <p class="eyebrow">Physical cursor calibration</p>
       <h1>MousePSR</h1>
-      <p class="lede">Measure and match consistent physical mouse sensitivity across operating systems and displays.</p>
+      <p class="lede">Measure and match consistent mouse behavior across operating systems and displays.</p>
       <p class="hint"><strong>Designed for linear mouse behavior:</strong> disable mouse acceleration before measuring or matching. On Windows, turn off <strong>Enhance pointer precision</strong>.</p>
-      <div class="formula">Mouse PSR = physical horizontal screen travel ÷ physical horizontal mouse travel</div>
+      <div class="formula">Mouse PSR = physical screen travel ÷ physical mouse travel · Mouse MSC = % screen width per inch of mouse travel</div>
     </header>
 
     <section class="panel">
@@ -202,23 +217,25 @@ function render() {
         <span class="measurement-state">${measurementStatusText()}</span>
         ${measuring ? `<span class="measurement-count">Completed this session: ${sessionRunCount}</span>` : ''}
       </div>
-      <p class="hint">Only horizontal movement while the primary button is held is used for Mouse PSR. Left-to-right and right-to-left runs are both valid. Vertical movement is tracked only as a sweep-quality indicator.</p>
+      <p class="hint">Only horizontal movement while the primary button is held is used. Mouse PSR measures physical distance response. Mouse MSC measures proportional screen coverage. Vertical movement is tracked only as a sweep-quality indicator.</p>
 
       <div class="section-head" style="margin-top:24px"><div><h2>Measurement results</h2></div></div>
       ${state.runs.length ? `
         <div class="metrics">
-          <div><span>Average Mouse PSR</span><strong>${stats.mean.toFixed(3)}</strong></div>
-          <div><span>Median Mouse PSR</span><strong>${stats.median.toFixed(3)}</strong></div>
-          <div><span>Std. deviation</span><strong>${stats.sd.toFixed(3)}</strong></div>
+          <div><span>Average Mouse PSR</span><strong>${psrStats.mean.toFixed(3)}</strong></div>
+          <div><span>Average Mouse MSC</span><strong>${mscStats.mean.toFixed(3)}</strong><span>% width / inch</span></div>
+          <div><span>PSR / MSC medians</span><strong>${psrStats.median.toFixed(3)} / ${mscStats.median.toFixed(3)}</strong></div>
         </div>
+        <p class="hint"><strong>Choose the metric that matches your goal:</strong> use <strong>Mouse PSR</strong> when you want the same physical mouse movement to produce the same physical cursor distance on different displays. Use <strong>Mouse MSC</strong> when you want the same mouse movement to cover the same proportion of each screen, even when the displays are physically different sizes.</p>
         <div class="table-wrap"><table>
-          <thead><tr><th>Use</th><th>Run</th><th>Mouse travel</th><th>Screen travel</th><th>Mouse PSR</th><th>Vertical quality</th></tr></thead>
+          <thead><tr><th>Use</th><th>Run</th><th>Mouse travel</th><th>Screen travel</th><th>Mouse PSR</th><th>Mouse MSC</th><th>Vertical quality</th></tr></thead>
           <tbody>${state.runs.map((run, i) => `<tr>
             <td><input class="runToggle" data-id="${run.id}" type="checkbox" ${run.included !== false ? 'checked' : ''}></td>
             <td>${i + 1}</td>
             <td>${formatDistance(run.mouseTravelMm ?? cmToMm(run.mouseTravelCm || 0))}</td>
             <td>${formatDistance(run.screenTravelMm ?? cmToMm(run.screenTravelCm || 0))}</td>
             <td>${run.ratio.toFixed(3)}</td>
+            <td>${runMsc(run).toFixed(3)}%/in</td>
             <td>${(run.verticalQuality * 100).toFixed(1)}%</td>
           </tr>`).join('')}</tbody>
         </table></div>
@@ -228,30 +245,39 @@ function render() {
 
     <section class="panel">
       <div class="section-head"><div><span class="step">3</span><h2>Match a target</h2></div></div>
-      <p>This section is mainly a reference aid. Experienced users who already know their preferred Mouse PSR can use Section 2 directly and adjust the operating system until their measured result reaches that target.</p>
-      <div class="metrics">
-        <div><span>Current average</span><strong>${current ? current.toFixed(3) : '—'}</strong></div>
-        <div><span>Current median</span><strong>${included.length ? stats.median.toFixed(3) : '—'}</strong></div>
-        <div>
-          <span>Desired target</span>
-          <input id="targetPsr" aria-label="Desired target Mouse PSR" type="number" min="0.001" max="100" step="0.001" value="${state.targetPsr}" />
-        </div>
+      <p>This section is a reference aid. Select the consistency model you want to match, enter the target value from a system you already like, then adjust the operating system pointer speed until the measured value approaches that target.</p>
+      <div class="controls">
+        <label>Matching metric
+          <select id="targetMetric">
+            <option value="psr" ${state.targetMetric === 'psr' ? 'selected' : ''}>Mouse PSR — physical distance</option>
+            <option value="msc" ${state.targetMetric === 'msc' ? 'selected' : ''}>Mouse MSC — screen coverage</option>
+          </select>
+        </label>
+        <label>${state.targetMetric === 'msc' ? 'Desired Mouse MSC' : 'Desired Mouse PSR'}
+          <input id="targetValue" type="number" min="0.001" max="1000" step="0.001" value="${targetValue}" />
+        </label>
       </div>
-      <p class="hint"><strong>Illustrative starting points, not standards:</strong> lower Mouse PSR means slower cursor travel and finer control. Around <strong>3–5</strong> can be explored for precision-focused work, while around <strong>10–12</strong> can be explored for faster general/office navigation. The best target is usually a value you already find comfortable on a reference system.</p>
-      ${current ? `<div class="match-result">
+      <div class="metrics">
+        <div><span>Current average</span><strong>${currentValue ? currentValue.toFixed(3) : '—'}</strong></div>
+        <div><span>Current median</span><strong>${includedRuns.length ? (state.targetMetric === 'msc' ? mscStats.median : psrStats.median).toFixed(3) : '—'}</strong></div>
+        <div><span>Target</span><strong>${targetValue.toFixed(3)}</strong>${state.targetMetric === 'msc' ? '<span>% width / inch</span>' : ''}</div>
+      </div>
+      ${state.targetMetric === 'psr' ? '<p class="hint"><strong>PSR matching:</strong> use this when you want identical physical cursor travel for the same physical mouse movement. The physical size of the monitor is part of the calibration.</p>' : '<p class="hint"><strong>MSC matching:</strong> use this when you want the same mouse movement to traverse the same percentage of screen width. Mouse MSC is normalized as percentage of horizontal screen width per one inch of physical mouse travel.</p>'}
+      ${currentValue ? `<div class="match-result">
         <strong>${Math.abs(diff) <= 1 ? 'Matched within 1%' : diff < 0 ? 'Increase OS pointer sensitivity' : 'Decrease OS pointer sensitivity'}</strong>
-        <span>Current ${current.toFixed(3)} · Target ${state.targetPsr.toFixed(3)} · Difference ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%</span>
+        <span>Current ${currentValue.toFixed(3)} · Target ${targetValue.toFixed(3)} · Difference ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%</span>
       </div>` : '<p>Complete measurements in Section 2 to compare your current sensitivity against the desired target.</p>'}
     </section>
 
     <section class="panel methodology">
       <h2>Methodology</h2>
-      <p><strong>What MousePSR matches:</strong> MousePSR measures the physical desktop result — how far the cursor travels across the physical display for a given physical mouse movement. If two systems measure the same Mouse PSR, then the same physical mouse travel should produce approximately the same physical horizontal cursor travel on both systems.</p>
-      <p><strong>What it does not guarantee:</strong> matching Mouse PSR does not make every part of the input pipeline identical. Operating systems, browsers, mouse polling, filtering, pointer-speed step sizes, display scaling, and hardware can still introduce subtle differences. MousePSR should therefore be treated as a practical way to normalize <em>physical cursor sensitivity</em>, not a guarantee of mathematically identical input behavior.</p>
-      <p>Browsers cannot reliably know a monitor's true physical PPI. MousePSR therefore calibrates the effective display scale using a known physical length, then measures Pointer Lock relative movement on the horizontal axis.</p>
-      <p>Mouse PSR is dimensionless: millimeters, centimeters, and inches all produce the same ratio. A Mouse PSR of 5 means that 1 cm of physical mouse travel produces approximately 5 cm of physical horizontal cursor travel on the calibrated display.</p>
-      <p><strong>For reliable matching:</strong> disable mouse acceleration (including Windows <strong>Enhance pointer precision</strong>), keep browser zoom and display scaling unchanged after calibration, recalibrate when moving to another monitor, mark the mouse travel distance accurately, use smooth horizontal sweeps, and average several consistent runs.</p>
-      <p>The most reliable cross-system workflow is to measure a comfortable Mouse PSR on your reference computer, save that value, then adjust pointer speed on each other computer until its measured Mouse PSR is as close as practical to the same target.</p>
+      <p><strong>Two ways to define consistency:</strong> MousePSR reports both a physical-distance metric and a screen-coverage metric from the same measurement. Neither is universally better; they answer different questions.</p>
+      <p><strong>Mouse PSR — physical-distance based:</strong> Mouse PSR is physical horizontal screen travel divided by physical mouse travel. A Mouse PSR of 5 means that 1 cm of mouse travel produces approximately 5 cm of physical cursor travel. Use PSR when you want the same physical hand movement to produce the same physical cursor distance across systems.</p>
+      <p><strong>Mouse MSC — ratio/screen-coverage based:</strong> Mouse MSC is the percentage of horizontal screen width traversed per 1 inch of physical mouse travel. For example, Mouse MSC 5 means one inch of mouse travel moves the cursor across about 5% of the screen width. Use MSC when you want the same hand movement to cover the same proportion of the screen regardless of the monitor's physical width.</p>
+      <p>Mouse PSR requires physical display calibration because browsers cannot reliably know a monitor's true physical PPI. Mouse MSC uses browser-reported logical screen width and relative Pointer Lock movement, so its calculation is based on screen proportion rather than physical display size.</p>
+      <p><strong>What matching does not guarantee:</strong> matching either metric does not make every part of the input pipeline identical. Operating systems, browsers, mouse polling, filtering, pointer-speed step sizes, display scaling, and hardware can still introduce subtle differences.</p>
+      <p><strong>For reliable matching:</strong> disable mouse acceleration (including Windows <strong>Enhance pointer precision</strong>), keep browser zoom and display scaling unchanged, mark the mouse travel distance accurately, use smooth horizontal sweeps, and average several consistent runs.</p>
+      <p>A practical workflow is to measure a comfortable system first, record either its Mouse PSR or Mouse MSC depending on your goal, then adjust pointer speed on each other system until the same metric is as close as practical to the saved target.</p>
     </section>
   `;
 
@@ -308,8 +334,16 @@ function bindEvents() {
     render();
   });
 
-  document.querySelector('#targetPsr').addEventListener('change', (e) => {
-    state.targetPsr = Math.max(0.001, Number(e.target.value) || 2.74);
+  document.querySelector('#targetMetric').addEventListener('change', (e) => {
+    state.targetMetric = e.target.value === 'msc' ? 'msc' : 'psr';
+    saveState();
+    render();
+  });
+
+  document.querySelector('#targetValue').addEventListener('change', (e) => {
+    const value = Math.max(0.001, Number(e.target.value) || 1);
+    if (state.targetMetric === 'msc') state.targetMsc = value;
+    else state.targetPsr = value;
     saveState();
     render();
   });
@@ -377,15 +411,20 @@ function completeRun() {
   runActive = false;
 
   if (Math.abs(runX) > 0) {
+    const movementCssPx = Math.abs(runX);
+    const screenWidthPx = screen.width;
     const screenTravelMm = calculateScreenTravelMm(runX, state.cssPixelsPerMm);
     const ratio = calculateSensitivityRatio(screenTravelMm, state.mouseTravelMm);
+    const msc = calculateMouseMsc(movementCssPx, screenWidthPx, state.mouseTravelMm);
     state.runs.push({
       id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-      movementCssPx: Math.abs(runX),
+      movementCssPx,
+      screenWidthPx,
       mouseTravelMm: state.mouseTravelMm,
       screenTravelMm,
       ratio,
-      verticalQuality: verticalQuality(runAbsY, Math.abs(runX)),
+      msc,
+      verticalQuality: verticalQuality(runAbsY, movementCssPx),
       included: true,
       createdAt: new Date().toISOString(),
     });
