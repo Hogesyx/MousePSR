@@ -35,6 +35,14 @@ export function calculateMouseMsc(movementPx, screenWidthPx, mouseTravelMm) {
   return (Math.abs(movementPx) / screenWidthPx) * 100 * (25.4 / mouseTravelMm);
 }
 
+// Screen fraction for an uncalibrated left-to-right wrist sweep.
+// Unlike Mouse PSR/MSC, physical mouse travel is intentionally unknown.
+export function calculateWristSweepPercent(startX, endX, fullscreenWidthPx) {
+  if (!(fullscreenWidthPx > 0)) throw new Error('Fullscreen width must be positive.');
+  if (!Number.isFinite(startX) || !Number.isFinite(endX)) throw new Error('Cursor positions must be finite.');
+  return Math.max(0, Math.min(100, ((endX - startX) / fullscreenWidthPx) * 100));
+}
+
 export function calculateDifferencePercent(current, target) {
   if (!(target > 0)) throw new Error('Target must be positive.');
   return ((current - target) / target) * 100;
