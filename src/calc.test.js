@@ -3,6 +3,7 @@ import {
   calculateCssPixelsPerMm,
   calculateDifferencePercent,
   calculateMouseMsc,
+  calculateWristSweepPercent,
   calculateScreenTravelMm,
   calculateSensitivityRatio,
   calculateStatistics,
@@ -39,6 +40,17 @@ describe('MousePSR calculations', () => {
     expect(cmToMm(1)).toBeCloseTo(10, 10);
     expect(mmToInches(25.4)).toBeCloseTo(1, 10);
     expect(inchesToMm(1)).toBeCloseTo(25.4, 10);
+  });
+
+  it('calculates percentage of fullscreen width swept by the cursor', () => {
+    expect(calculateWristSweepPercent(0, 960, 1920)).toBeCloseTo(50, 10);
+    expect(calculateWristSweepPercent(30, 990, 1920)).toBeCloseTo(50, 10);
+  });
+
+  it('clamps off-screen sweeps and rejects invalid fullscreen widths', () => {
+    expect(calculateWristSweepPercent(0, 2500, 1920)).toBe(100);
+    expect(calculateWristSweepPercent(100, 50, 1920)).toBe(0);
+    expect(() => calculateWristSweepPercent(0, 50, 0)).toThrow();
   });
 
   it('calculates target difference', () => {
