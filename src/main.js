@@ -11,6 +11,7 @@ import {
   mmToCm,
   mmToInches,
 } from './calc.js';
+import { mountWristMode } from './wrist-mode.js';
 
 const STORAGE_KEY = 'mousepsr-state-v2';
 const LEGACY_STORAGE_KEY = 'mousepsr-state-v1';
@@ -282,6 +283,7 @@ function render() {
   `;
 
   bindEvents();
+  mountWristMode();
 }
 
 function bindEvents() {
