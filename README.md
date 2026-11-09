@@ -35,6 +35,25 @@ Mouse movement is intentionally measured on the **horizontal axis only**. Vertic
 
 For display calibration, measure the reference bar from the **outside edge of the left border to the outside edge of the right border**. Do not measure between the inner edges of the thick border.
 
+## Fullscreen wrist-sweep mode (no ruler)
+
+MousePSR also includes a **Fullscreen wrist sweep** mode for quick, gesture-based matching when you do not want to calibrate physical dimensions.
+
+1. Select **Fullscreen wrist sweep · no ruler**.
+2. Enter browser fullscreen.
+3. Place your wrist at its comfortable leftmost position and move the cursor to the far-left screen edge.
+4. Press and hold the primary mouse button, sweep right with a repeatable wrist movement, then release.
+5. Repeat 3–5 times and use the average **screen coverage percentage** as a target on another machine.
+6. Adjust the other machine's OS pointer speed and repeat the same wrist gesture until its average percentage is close to the target.
+
+Calculation:
+
+```
+Wrist sweep coverage (%) = 100 × horizontal cursor travel in fullscreen CSS pixels / fullscreen width in CSS pixels
+```
+
+This mode **does not measure physical mouse travel**, so its result is **not Mouse PSR** and **not Mouse MSC** (which needs a known physical mouse travel distance). It is a reproducible *relative-gesture estimate* only insofar as you can repeat the same wrist range, starting pose, grip, and movement across devices. The app rejects gestures that touch the right screen edge because cursor movement may be clipped. Runs and targets are saved locally in the browser but are not synchronized to other computers.
+
 ## Local development
 
 ```bash
